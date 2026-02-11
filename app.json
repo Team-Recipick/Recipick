@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "yorizori",
-    "slug": "yorizori",
+    "name": "Recipick!",
+    "slug": "recipick",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "yorizori",
+    "scheme": "recipick",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -33,7 +33,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#54CDA4",
           "dark": {
             "backgroundColor": "#000000"
           }
