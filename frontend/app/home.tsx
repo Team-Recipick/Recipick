@@ -270,7 +270,17 @@ export default function Home() {
                   <TouchableOpacity
                     activeOpacity={0.9}
                     style={styles.createDoneBtn}
-                    onPress={() => setShowCreatePanel(false)}
+                    onPress={() => {
+                      const trimmed = link.trim();
+                      if (!trimmed) return;
+
+                      router.push({
+                        pathname: '/create-link',
+                        params: { link: trimmed },
+                      });
+
+                      setShowCreatePanel(false);
+                    }}
                   >
                     <Text style={styles.createDoneText}>완료</Text>
                   </TouchableOpacity>
@@ -279,7 +289,17 @@ export default function Home() {
                 <TouchableOpacity
                   activeOpacity={0.9}
                   style={styles.createDoneBtnFull}
-                  onPress={() => setShowCreatePanel(false)}
+                  onPress={() => {
+                    const trimmed = link.trim();
+                    if (!trimmed) return;
+
+                    router.push({
+                      pathname: '/create-link',
+                      params: { link: trimmed },
+                    });
+
+                    setShowCreatePanel(false);
+                  }}
                 >
                   <Text style={styles.createDoneText}>완료</Text>
                 </TouchableOpacity>
