@@ -31,3 +31,8 @@ variable "RAPIDAPI_KEY" {
   type        = string
   sensitive   = true 
 }
+variable "firebase_json" {
+  description = "로그인 용 파이어베이스 json"
+  type        = string
+  sensitive   = true 
+}

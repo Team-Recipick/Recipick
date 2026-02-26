@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-pymysql
-python-dotenv
-google-generativeai
-youtube-transcript-api
-cryptography
-yt-dlp

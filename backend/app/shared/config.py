@@ -7,5 +7,6 @@ class Settings:
     REGION: str = os.getenv("AWS_REGION", "ap-northeast-2")
     S3_BUCKET_NAME: str = os.environ["S3_BUCKET_NAME"]
     RAPIDAPI_KEY: str = os.environ["RAPIDAPI_KEY"]
+    FIREBASE_SERVICE_ACCOUNT: str = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
     
 settings = Settings()

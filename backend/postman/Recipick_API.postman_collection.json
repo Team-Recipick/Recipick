@@ -1,0 +1,584 @@
+{
+  "info": {
+    "name": "Recipick API",
+    "_postman_id": "d3c0f9e2-6a5e-4e83-98b8-3f1739a63c10",
+    "description": "Recipick backend API collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Firebase Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"{{id_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/firebase/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "firebase",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('user_id', data.user_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Upsert Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"요리왕\",\n  \"profile_image\": \"https://cdn.example.com/profiles/u1.png\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create History",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"video_id\": \"{{video_id}}\",\n  \"recipe_title\": \"간장계란볶음밥\",\n  \"thumbnail_url\": \"https://img.youtube.com/vi/{{video_id}}/hqdefault.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "history"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/history?limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Activities",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/activities?limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "activities"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recipes",
+      "item": [
+        {
+          "name": "Request Recipe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"video_id\": \"{{video_id}}\",\n  \"original_url\": \"https://www.youtube.com/watch?v={{video_id}}\",\n  \"sharer_nickname\": \"요리왕\",\n  \"title\": \"레시피 분석 준비 중...\",\n  \"channel_name\": \"알 수 없음\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recipes/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Recipe",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Create Comment (Anonymous)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('comment_id', data.comment_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"익명 댓글 테스트\",\n  \"like_count\": 0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "comments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Comment (Authenticated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('comment_id', data.comment_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"로그인 댓글 테스트\",\n  \"like_count\": 0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "comments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Comments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/comments?limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Comment (Auth Required)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment_id\": \"{{comment_id}}\",\n  \"content\": \"수정 테스트\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "comments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Comment (Auth Required)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment_id\": \"{{comment_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "comments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interactions (Auth Required)",
+      "item": [
+        {
+          "name": "Like Recipe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/likes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "likes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unlike Recipe",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/likes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "likes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bookmark Recipe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/bookmarks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "bookmarks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unbookmark Recipe",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/bookmarks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "bookmarks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Share Recipe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{id_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recipes/{{video_id}}/shares",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recipes",
+                "{{video_id}}",
+                "shares"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "id_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "video_id",
+      "value": "dQw4w9WgXcQ"
+    },
+    {
+      "key": "comment_id",
+      "value": ""
+    }
+  ]
+}

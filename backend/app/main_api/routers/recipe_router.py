@@ -1,11 +1,22 @@
-from fastapi import APIRouter
-from app.main_api.schemas.recipe_schema import RecipeRequest, RecipeResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Optional
+from app.main_api.schemas.recipe_schema import (
+    RecipeRequest,
+    RecipeResponse,
+    RecipeCommentCreateRequest,
+    RecipeCommentUpdateRequest,
+    RecipeCommentDeleteRequest,
+    RecipeCommentResponse,
+    RecipeActionResponse,
+)
+from app.main_api.dependencies.auth import get_current_auth_user, get_optional_auth_user
 from app.main_api.services import recipe_service
 
 router = APIRouter(prefix="/api/recipes")
 
 @router.post("/", response_model=RecipeResponse)
 def request_recipe(req: RecipeRequest):
+    # 최초 요청 시 캐시 확인 후 PROCESSING/COMPLETED 상태를 즉시 반환
     return recipe_service.process_recipe_request(
         req.video_id, 
         req.original_url, 
@@ -14,12 +25,100 @@ def request_recipe(req: RecipeRequest):
         req.channel_name
     )
 
-# @router.get("/api/recipe/{video_id}", response_model=RecipeResponse)
-# def get_recipe_status(video_id: str):
-#     # 프론트 분석 대기중에 폴링용 api
-#     recipe = recipe_service.get_recipe_info(video_id)
+@router.get("/{video_id}", response_model=RecipeResponse)
+def get_recipe_status(video_id: str):
+    # 프론트 폴링용 상태 조회 API
+    recipe = recipe_service.get_recipe_info(video_id)
     
-#     if not recipe:
-#         raise HTTPException(status_code=404, detail="레시피를 찾을 수 없습니다.")
-        
-#     return recipe
+    if not recipe:
+        raise HTTPException(status_code=404, detail="레시피를 찾을 수 없습니다.")
+
+    return {
+        "status": recipe.get("status"),
+        "video_id": video_id,
+        "thumbnail_url": recipe.get("thumbnail_url"),
+        "title": recipe.get("title"),
+        "channel_name": recipe.get("channel_name"),
+        "data": recipe if recipe.get("status") == "COMPLETED" else None
+    }
+
+@router.post("/{video_id}/comments", response_model=RecipeCommentResponse)
+def create_comment(
+    video_id: str,
+    req: RecipeCommentCreateRequest,
+    auth_user: Optional[dict] = Depends(get_optional_auth_user),
+):
+    # 댓글은 인증 선택: 로그인 유저면 본인 정보, 아니면 서비스에서 익명 처리
+    user_id = auth_user.get("user_id") if auth_user else None
+    nickname = auth_user.get("nickname") if auth_user else None
+    return recipe_service.create_comment(
+        video_id=video_id,
+        content=req.content,
+        like_count=req.like_count,
+        user_id=user_id,
+        nickname=nickname,
+    )
+
+
+@router.get("/{video_id}/comments", response_model=list[RecipeCommentResponse])
+def list_comments(video_id: str, limit: int = Query(default=20, ge=1, le=100)):
+    return recipe_service.list_comments(video_id=video_id, limit=limit)
+
+
+@router.patch("/{video_id}/comments", response_model=RecipeCommentResponse)
+def update_comment(
+    video_id: str,
+    req: RecipeCommentUpdateRequest,
+    auth_user: dict = Depends(get_current_auth_user),
+):
+    # 댓글 수정은 인증 필수 + 본인 댓글만 허용
+    return recipe_service.update_comment(
+        video_id=video_id,
+        comment_id=req.comment_id,
+        user_id=auth_user["user_id"],
+        content=req.content,
+    )
+
+
+@router.delete("/{video_id}/comments", response_model=RecipeActionResponse)
+def delete_comment(
+    video_id: str,
+    req: RecipeCommentDeleteRequest,
+    auth_user: dict = Depends(get_current_auth_user),
+):
+    # 댓글 삭제는 인증 필수 + 본인 댓글만 허용
+    return recipe_service.delete_comment(
+        video_id=video_id,
+        comment_id=req.comment_id,
+        user_id=auth_user["user_id"],
+    )
+
+
+@router.post("/{video_id}/likes", response_model=RecipeActionResponse)
+def like_recipe(video_id: str, auth_user: dict = Depends(get_current_auth_user)):
+    # 좋아요는 인증 필수
+    return recipe_service.like_recipe(video_id=video_id, user_id=auth_user["user_id"])
+
+
+@router.delete("/{video_id}/likes", response_model=RecipeActionResponse)
+def unlike_recipe(video_id: str, auth_user: dict = Depends(get_current_auth_user)):
+    # 좋아요 취소는 인증 필수
+    return recipe_service.unlike_recipe(video_id=video_id, user_id=auth_user["user_id"])
+
+
+@router.post("/{video_id}/bookmarks", response_model=RecipeActionResponse)
+def bookmark_recipe(video_id: str, auth_user: dict = Depends(get_current_auth_user)):
+    # 북마크는 인증 필수
+    return recipe_service.bookmark_recipe(video_id=video_id, user_id=auth_user["user_id"])
+
+
+@router.delete("/{video_id}/bookmarks", response_model=RecipeActionResponse)
+def unbookmark_recipe(video_id: str, auth_user: dict = Depends(get_current_auth_user)):
+    # 북마크 취소는 인증 필수
+    return recipe_service.unbookmark_recipe(video_id=video_id, user_id=auth_user["user_id"])
+
+
+@router.post("/{video_id}/shares", response_model=RecipeActionResponse)
+def share_recipe(video_id: str, auth_user: dict = Depends(get_current_auth_user)):
+    # 공유 이벤트 기록은 인증 필수
+    return recipe_service.share_recipe(video_id=video_id, user_id=auth_user["user_id"])

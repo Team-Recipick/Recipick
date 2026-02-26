@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 from app.shared.models.recipe_model import RecipeStatus
 
 class RecipeRequest(BaseModel):
@@ -15,4 +16,37 @@ class RecipeResponse(BaseModel):
     thumbnail_url: str
     title: str
     channel_name: str
-    data: dict = None
+    data: Optional[dict] = None
+
+
+class RecipeCommentCreateRequest(BaseModel):
+    content: str
+    like_count: int = 0
+
+
+class RecipeCommentResponse(BaseModel):
+    comment_id: str
+    video_id: str
+    user_id: str
+    nickname: str
+    content: str
+    like_count: int
+    created_at: str
+
+
+class RecipeCommentUpdateRequest(BaseModel):
+    comment_id: str
+    content: str
+
+
+class RecipeCommentDeleteRequest(BaseModel):
+    comment_id: str
+
+
+class RecipeActionResponse(BaseModel):
+    success: bool
+    action: str
+    video_id: str
+    user_id: str
+    created_at: Optional[str] = None
+    already_exists: bool = False

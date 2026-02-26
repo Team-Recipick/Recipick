@@ -112,7 +112,6 @@ resource "aws_iam_role" "main_api_role" {
     Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Service = "lambda.amazonaws.com" }, Action = "sts:AssumeRole" }]
   })
 }
-
 resource "aws_iam_role_policy_attachment" "main_api_logs" {
   role       = aws_iam_role.main_api_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -126,9 +125,16 @@ resource "aws_iam_role_policy" "main_api_policy" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]
+        Action   = [
+          "dynamodb:GetItem", 
+          "dynamodb:PutItem", 
+          "dynamodb:Query", 
+          "dynamodb:UpdateItem", 
+          "dynamodb:DeleteItem"
+        ]
         Resource = [
           aws_dynamodb_table.recipes.arn,
+          "${aws_dynamodb_table.recipes.arn}/index/*",
           aws_dynamodb_table.users.arn
         ]
       },
@@ -213,6 +219,8 @@ resource "aws_lambda_function" "main_api" {
   timeout     = 29 # API Gateway 최대 타임아웃에 맞춤
   memory_size = 512
 
+  kms_key_arn = aws_kms_key.firebase_kms.arn
+
   environment {
     variables = {
       USER_TABLE_NAME   = aws_dynamodb_table.users.name
@@ -220,6 +228,7 @@ resource "aws_lambda_function" "main_api" {
       SQS_QUEUE_URL       = aws_sqs_queue.recipe_queue.url
       S3_BUCKET_NAME      = aws_s3_bucket.static.bucket
       RAPIDAPI_KEY        = var.RAPIDAPI_KEY
+      FIREBASE_SERVICE_ACCOUNT = var.firebase_json 
     }
   }
 }
@@ -299,4 +308,35 @@ resource "aws_lambda_permission" "allow_apigw" {
   function_name = aws_lambda_function.main_api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+# -----------------------------------------------------------------------------
+# 5. KMS (로그인 Firebase 용)
+# -----------------------------------------------------------------------------
+# 1. KMS 키 생성 (비밀번호를 암호화/복호화할 열쇠)
+resource "aws_kms_key" "firebase_kms" {
+  description             = "KMS key for Firebase Service Account JSON"
+  deletion_window_in_days = 7
+}
+
+resource "aws_kms_alias" "firebase_kms_alias" {
+  name          = "alias/recipick-firebase-key"
+  target_key_id = aws_kms_key.firebase_kms.key_id
+}
+
+# 2. 메인 API 람다 역할에 KMS 복호화 권한 추가
+resource "aws_iam_role_policy" "main_api_kms_policy" {
+  name = "recipick-main-api-kms-policy"
+  role = aws_iam_role.main_api_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = aws_kms_key.firebase_kms.arn
+      }
+    ]
+  })
 }

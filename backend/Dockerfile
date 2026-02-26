@@ -1,14 +1,39 @@
-FROM python:3.9.21-slim
+# ==========================================
+# Stage 1: Base (AWS 공식 람다 파이썬 이미지)
+# ==========================================
+FROM public.ecr.aws/lambda/python:3.12 AS base
 
-WORKDIR /app
+ENV POETRY_VERSION=1.7.1 \
+    POETRY_VIRTUALENVS_CREATE=false
 
-# 시스템 의존성 설치 (필요시)
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Poetry 설치 (람다는 ${LAMBDA_TASK_ROOT} 경로를 씁니다)
+RUN pip install "poetry==$POETRY_VERSION"
+COPY pyproject.toml poetry.lock* ${LAMBDA_TASK_ROOT}/
+RUN poetry install --no-interaction --no-ansi --no-root
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 소스 코드 복사
+COPY ./app ${LAMBDA_TASK_ROOT}/app
 
-COPY ./app ./app
 
-# 실행 명령어
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# ==========================================
+# Stage 2: API (프론트엔드 통신용)
+# ==========================================
+FROM base AS api
+# Uvicorn 대신 Mangum 핸들러를 실행 파일로 지정합니다.
+CMD ["app.main_api.main.handler"]
+
+# ==========================================
+# Stage 3: Worker (SQS 트리거용)
+# ==========================================
+FROM base AS worker
+
+RUN dnf install -y tar xz && \
+    curl -O https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz && \
+    tar xvf ffmpeg-release-amd64-static.tar.xz && \
+    mv ffmpeg-*-static/ffmpeg /usr/local/bin/ && \
+    mv ffmpeg-*-static/ffprobe /usr/local/bin/ && \
+    rm -rf ffmpeg* && \
+    dnf clean all
+
+# SQS 이벤트 발생 시 실행될 핸들러 지정
+CMD ["app.llm_worker.worker.sqs_handler"]
