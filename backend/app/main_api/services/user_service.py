@@ -71,3 +71,18 @@ def get_user_activities(user_id: str, limit: int = 20):
             }
         )
     return _replace_decimals(normalized)
+
+
+def delete_user_account_data(user_id: str):
+    deleted_profile = user_repo.delete_user_profile(user_id)
+    deleted_history_count = user_repo.delete_all_user_history(user_id)
+    activity_result = user_repo.delete_all_user_activities(user_id)
+
+    return {
+        "success": True,
+        "user_id": user_id,
+        "deleted_profile": deleted_profile,
+        "deleted_history_count": deleted_history_count,
+        "deleted_activity_count": activity_result.get("deleted_activity_count", 0),
+        "anonymized_comment_count": activity_result.get("anonymized_comment_count", 0),
+    }

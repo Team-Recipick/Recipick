@@ -72,3 +72,21 @@ def test_auth_me_success(client, monkeypatch):
     res = client.get("/api/auth/me", headers={"Authorization": "Bearer token"})
     assert res.status_code == 200
     assert res.json()["user_id"] == "uid123"
+
+
+def test_delete_me_success(client, monkeypatch):
+    def fake_delete_my_account_data(id_token):
+        assert id_token == "token"
+        return {
+            "success": True,
+            "user_id": "uid123",
+            "deleted_profile": True,
+            "deleted_history_count": 1,
+            "deleted_activity_count": 2,
+            "anonymized_comment_count": 1,
+        }
+
+    monkeypatch.setattr(auth_router.auth_service, "delete_my_account_data", fake_delete_my_account_data)
+    res = client.delete("/api/auth/me", headers={"Authorization": "Bearer token"})
+    assert res.status_code == 200
+    assert res.json()["success"] is True

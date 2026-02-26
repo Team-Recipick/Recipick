@@ -61,3 +61,15 @@ def me_from_firebase_token(id_token: str):
     if not user:
         user, _ = _sync_user_profile(decoded, None, None)
     return user
+
+
+def delete_my_account_data(id_token: str):
+    try:
+        decoded = verify_firebase_id_token(id_token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"유효하지 않은 Firebase 토큰입니다: {exc}"
+        )
+
+    return user_service.delete_user_account_data(decoded["uid"])

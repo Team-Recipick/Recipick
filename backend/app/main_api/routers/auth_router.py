@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.main_api.schemas.auth_schema import FirebaseAuthRequest, FirebaseAuthResponse, AuthUserResponse
+from app.main_api.schemas.auth_schema import (
+    FirebaseAuthRequest,
+    FirebaseAuthResponse,
+    AuthUserResponse,
+    DeleteAccountResponse,
+)
 from app.main_api.services import auth_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -34,3 +39,11 @@ def get_me(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
     if not credentials:
         raise HTTPException(status_code=401, detail="Authorization Bearer 토큰이 필요합니다.")
     return auth_service.me_from_firebase_token(credentials.credentials)
+
+
+@router.delete("/me", response_model=DeleteAccountResponse)
+def delete_me(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
+    # Firebase 계정은 유지하고, Recipick 앱 데이터만 삭제
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authorization Bearer 토큰이 필요합니다.")
+    return auth_service.delete_my_account_data(credentials.credentials)

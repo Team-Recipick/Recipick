@@ -71,3 +71,76 @@ def list_user_activities(user_id: str, limit: int = 20):
         Limit=limit
     )
     return response.get("Items", [])
+
+
+def delete_user_profile(user_id: str) -> bool:
+    response = user_table.delete_item(
+        Key={"user_id": user_id},
+        ReturnValues="ALL_OLD"
+    )
+    return bool(response.get("Attributes"))
+
+
+def delete_all_user_history(user_id: str) -> int:
+    deleted_count = 0
+    query_kwargs = {
+        "KeyConditionExpression": Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("HISTORY#")
+    }
+
+    while True:
+        response = recipe_table.query(**query_kwargs)
+        items = response.get("Items", [])
+        if items:
+            with recipe_table.batch_writer() as batch:
+                for item in items:
+                    batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+                    deleted_count += 1
+
+        if "LastEvaluatedKey" not in response:
+            break
+        query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+
+    return deleted_count
+
+
+def delete_all_user_activities(user_id: str) -> int:
+    deleted_count = 0
+    anonymized_comment_count = 0
+    query_kwargs = {
+        "IndexName": "UserActivityIndex",
+        "KeyConditionExpression": Key("user_id").eq(user_id)
+    }
+
+    while True:
+        response = recipe_table.query(**query_kwargs)
+        items = response.get("Items", [])
+        if items:
+            for item in items:
+                pk = item.get("PK")
+                sk = item.get("SK")
+                if not pk or not sk:
+                    continue
+
+                # 댓글은 데이터 무결성을 위해 남기고 작성자 정보만 익명화한다.
+                if str(sk).startswith("COMMENT#"):
+                    recipe_table.update_item(
+                        Key={"PK": pk, "SK": sk},
+                        UpdateExpression="SET user_id = :uid, nickname = :nickname",
+                        ExpressionAttributeValues={
+                            ":uid": "DELETED_USER",
+                            ":nickname": "알수없음"
+                        }
+                    )
+                    anonymized_comment_count += 1
+                else:
+                    recipe_table.delete_item(Key={"PK": pk, "SK": sk})
+                    deleted_count += 1
+
+        if "LastEvaluatedKey" not in response:
+            break
+        query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+
+    return {
+        "deleted_activity_count": deleted_count,
+        "anonymized_comment_count": anonymized_comment_count
+    }

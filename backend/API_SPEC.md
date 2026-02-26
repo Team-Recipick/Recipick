@@ -63,6 +63,22 @@ Response
 }
 ```
 
+### DELETE `/api/auth/me`
+Recipick 앱 데이터만 탈퇴 처리 (인증 필수)
+- Firebase 계정은 삭제하지 않음
+
+Response
+```json
+{
+  "success": true,
+  "user_id": "firebase_uid_123",
+  "deleted_profile": true,
+  "deleted_history_count": 3,
+  "deleted_activity_count": 5,
+  "anonymized_comment_count": 2
+}
+```
+
 ## 4. User API
 
 ### PUT `/api/users/{user_id}/profile`

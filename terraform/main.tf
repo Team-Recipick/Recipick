@@ -130,7 +130,8 @@ resource "aws_iam_role_policy" "main_api_policy" {
           "dynamodb:PutItem", 
           "dynamodb:Query", 
           "dynamodb:UpdateItem", 
-          "dynamodb:DeleteItem"
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchWriteItem"
         ]
         Resource = [
           aws_dynamodb_table.recipes.arn,
