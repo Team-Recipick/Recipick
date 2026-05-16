@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        #status {
+        position: absolute; top: 0; width: 100%; text-align: center;
+        color: #fff; font-size: 9px; font-family: sans-serif;
+        background: rgba(0,0,0,0.55); padding: 2px 0;
+        }
+        #gesture-flash {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px; opacity: 0; transition: opacity 0.1s; pointer-events: none;
+        }
+        #gesture-flash.show { opacity: 1; }
+    </style>
+    </head>
+    <body>
+    <video id="video" autoplay playsinline muted></video>
+    <div id="gesture-flash"></div>
+    <div id="status">초기화 중...</div>
+
+    <script type="module">
+        import { FilesetResolver, HandLandmarker }
+        from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+        const WASM_CDN  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
+        const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+
+        const video    = document.getElementById('video');
+        const statusEl = document.getElementById('status');
+        const flashEl  = document.getElementById('gesture-flash');
+
+        let handLandmarker = null;
+        let lastVideoTime  = -1;
+        let frameCount     = 0;
+
+        const COOLDOWN = 30;
+        let cdPalm = 0, cdFist = 0, cdLeft = 0, cdRight = 0, cdOk = 0;
+
+        const CONFIRM_FRAMES = 4;
+        let confirmGesture = null;
+        let confirmCount   = 0;
+
+        function setStatus(msg) { statusEl.textContent = msg; }
+        function showFlash(emoji) {
+        flashEl.textContent = emoji;
+        flashEl.classList.add('show');
+        setTimeout(() => flashEl.classList.remove('show'), 600);
+        }
+        function sendGesture(g) {
+        if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(g);
+        }
+
+        function extended(lm, tip, mcp) { return lm[tip].y < lm[mcp].y - 0.02; }
+        function curled(lm, tip, pip)   { return lm[tip].y > lm[pip].y; }
+
+        function classify(lm) {
+        const extI = extended(lm, 8, 5);
+        const extM = extended(lm, 12, 9);
+        const extR = extended(lm, 16, 13);
+        const extP = extended(lm, 20, 17);
+
+        const curI = curled(lm, 8, 7);
+        const curM = curled(lm, 12, 11);
+        const curR = curled(lm, 16, 15);
+        const curP = curled(lm, 20, 19);
+
+        // ✋ 손바닥: 4손가락 모두 펼침
+        if (extI && extM && extR && extP) return 'PALM';
+
+        // ✊ 주먹: 4손가락 모두 확실히 접힘
+        if (curI && curM && curR && curP) return 'FIST';
+
+        // 👈 👉 검지 하나만 펼침, 나머지 접힘, 수평 방향
+        if (extI && curM && curR && curP) {
+            const dx = lm[8].x - lm[5].x;
+            const dy = lm[8].y - lm[5].y;
+            if (Math.abs(dx) > Math.abs(dy) * 0.8 && Math.abs(dx) > 0.05) {
+            // 미러링(scaleX(-1)) 적용: dx > 0 → 화면상 왼쪽 → 👈
+            if (dx > 0) return 'POINT_LEFT';
+            else         return 'POINT_RIGHT';
+            }
+        }
+
+        // 👌 OK: 엄지-검지 끝 붙음, 중지/약지/새끼 펼침
+        const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
+        if (pinchDist < 0.08 && extM && extR && extP) return 'OK';
+
+        return null;
+        }
+
+        function detectionLoop() {
+        if (!handLandmarker || video.readyState < 2) {
+            requestAnimationFrame(detectionLoop); return;
+        }
+        frameCount++;
+        if (frameCount % 2 !== 0) { requestAnimationFrame(detectionLoop); return; }
+        if (video.currentTime === lastVideoTime) { requestAnimationFrame(detectionLoop); return; }
+        lastVideoTime = video.currentTime;
+
+        let results;
+        try { results = handLandmarker.detectForVideo(video, performance.now()); }
+        catch (e) { requestAnimationFrame(detectionLoop); return; }
+
+        if (cdPalm > 0) cdPalm--;
+        if (cdFist  > 0) cdFist--;
+        if (cdLeft  > 0) cdLeft--;
+        if (cdRight > 0) cdRight--;
+        if (cdOk    > 0) cdOk--;
+
+        if (results?.landmarks?.length > 0) {
+            const lm = results.landmarks[0];
+            const g  = classify(lm);
+
+            if (g === confirmGesture) {
+            confirmCount++;
+            } else {
+            confirmGesture = g;
+            confirmCount   = 1;
+            }
+
+            if (confirmCount >= CONFIRM_FRAMES && g !== null) {
+            if      (g === 'PALM'        && cdPalm  === 0) { sendGesture('PALM');        showFlash('✋'); cdPalm  = COOLDOWN * 2; }
+            else if (g === 'FIST'        && cdFist   === 0) { sendGesture('FIST');        showFlash('✊'); cdFist  = COOLDOWN * 2; }
+            else if (g === 'POINT_LEFT'  && cdLeft  === 0) { sendGesture('SWIPE_LEFT');  showFlash('👈'); cdLeft  = COOLDOWN; }
+            else if (g === 'POINT_RIGHT' && cdRight === 0) { sendGesture('SWIPE_RIGHT'); showFlash('👉'); cdRight = COOLDOWN; }
+            else if (g === 'OK'          && cdOk    === 0) { sendGesture('OK');           showFlash('👌'); cdOk    = COOLDOWN * 2; }
+            }
+        } else {
+            confirmGesture = null;
+            confirmCount   = 0;
+        }
+
+        requestAnimationFrame(detectionLoop);
+        }
+
+        async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+            audio: false
+            });
+            video.srcObject = stream;
+            video.addEventListener('loadeddata', () => {
+            setStatus('손 인식 중...');
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('MEDIAPIPE_READY');
+            detectionLoop();
+            });
+        } catch (e) { setStatus('카메라 오류: ' + e.message); }
+        }
+
+        async function init() {
+        try {
+            setStatus('MediaPipe 로딩 중...');
+            const filesetResolver = await FilesetResolver.forVisionTasks(WASM_CDN);
+            handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
+            baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+            runningMode: 'VIDEO', numHands: 1,
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+            });
+            setStatus('카메라 시작 중...');
+            await startCamera();
+        } catch (e) { setStatus('오류: ' + e.message); }
+        }
+        init();
+    </script>
+</body>
+</html>
