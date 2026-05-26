@@ -182,7 +182,7 @@ export default function CookScreen() {
     const [voiceOpen, setVoiceOpen] = useState(false);
     const [alarmOpen, setAlarmOpen] = useState(false);
 
-    const [isPlaying, setIsPlaying] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(true);
     const [remainingSec, setRemainingSec] = useState(0);
     const [manualTimerSec, setManualTimerSec] = useState<number | null>(null);
 
@@ -205,23 +205,21 @@ export default function CookScreen() {
     }, [isPlaying]);
     const youtubeWebViewRef = useRef<any>(null);
 
-    // handleGestureMessage 수정
     const handleGestureMessage = (gesture: string) => {
         if (gesture === 'PALM') {
-            gestureRef.current = true;
-            const playing = isPlayingRef.current;
-            if (playing) {
-                youtubeWebViewRef.current?.injectJavaScript('player.pauseVideo(); true;');
-                setIsPlaying(false);
-            } else {
-                youtubeWebViewRef.current?.injectJavaScript('player.playVideo(); true;');
-                setIsPlaying(true);
-            }
-            setTimeout(() => { gestureRef.current = false; }, 1000);
+            togglePlay();
+        } else if (gesture === 'PEACE') {
+            openVoiceModal();
+        } else if (gesture === 'SWIPE_LEFT' || gesture === 'POINT_LEFT') {
+            jumpToStep(activeIdx - 1);
+        } else if (gesture === 'SWIPE_RIGHT' || gesture === 'POINT_RIGHT') {
+            jumpToStep(activeIdx + 1);
+        } else if (gesture === 'OK') {
+            setTimerOpen(true);
+        } else if (gesture.startsWith('FINGER_COUNT_')) {
+            const n = parseInt(gesture.slice('FINGER_COUNT_'.length), 10);
+            if (n >= 1 && n <= 5) applyTimer(n * 30);
         }
-        else if (gesture === 'SWIPE_LEFT') jumpToStep(activeIdx - 1);
-        else if (gesture === 'SWIPE_RIGHT') jumpToStep(activeIdx + 1);
-        else if (gesture === 'OK') setTimerOpen(true);
     };
     useEffect(() => {
         console.log('[COOK PARAMS]', params);
@@ -321,7 +319,13 @@ export default function CookScreen() {
         timerFinishedHandledRef.current = false;
     };
 
-    const openVoiceModal = () => {
+    const openVoiceModal = async () => {
+        if (Platform.OS === 'android') {
+            const granted = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+            );
+            if (granted !== PermissionsAndroid.RESULTS.GRANTED) return;
+        }
         setVoiceOpen(true);
         setVoiceStatusText('듣고 있는 중...');
     };
@@ -343,15 +347,10 @@ export default function CookScreen() {
 
     useEffect(() => {
         if (Platform.OS === 'android') {
-            PermissionsAndroid.request(
+            PermissionsAndroid.requestMultiple([
                 PermissionsAndroid.PERMISSIONS.CAMERA,
-                {
-                    title: '카메라 권한 요청',
-                    message: '손 제스처 인식을 위해 카메라 권한이 필요해요.',
-                    buttonPositive: '허용',
-                    buttonNegative: '거부',
-                }
-            );
+                PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+            ]);
         }
     }, []);
     useEffect(() => {
@@ -463,6 +462,13 @@ export default function CookScreen() {
     };
 
     useEffect(() => {
+        const js = timerOpen
+            ? 'window.enterFingerCountMode && window.enterFingerCountMode(); true;'
+            : 'window.exitFingerCountMode && window.exitFingerCountMode(); true;';
+        webRef.current?.injectJavaScript(js);
+    }, [timerOpen]);
+
+    useEffect(() => {
         if (remainingSec > 0) {
             timerFinishedHandledRef.current = false;
         }
@@ -541,10 +547,12 @@ export default function CookScreen() {
                                     if (state === "playing") setIsPlaying(true);   // ← 주석 해제
                                     if (state === "paused") setIsPlaying(false);
                                 }}
+                                forceAndroidAutoplay={true}
                                 webViewProps={{
-                                    ref: youtubeWebViewRef, 
+                                    ref: youtubeWebViewRef,
                                     androidLayerType: "hardware",
                                     allowsFullscreenVideo: true,
+                                    mediaPlaybackRequiresUserAction: false,
                                     userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
                                 }}
                                 onReady={() => setVideoError(false)}
@@ -584,6 +592,20 @@ export default function CookScreen() {
                     <TouchableOpacity onPress={() => router.back()} hitSlop={14} style={styles.videoBackBtn}>
                         <Ionicons name="arrow-back" size={22} color={WHITE} />
                     </TouchableOpacity>
+
+                    {videoId && !videoError && (
+                        <TouchableOpacity
+                            onPress={togglePlay}
+                            activeOpacity={0.7}
+                            style={styles.playPauseBtn}
+                        >
+                            <Ionicons
+                                name={isPlaying ? 'pause' : 'play'}
+                                size={18}
+                                color={WHITE}
+                            />
+                        </TouchableOpacity>
+                    )}
                 </View>
             </View>
 
@@ -666,8 +688,9 @@ export default function CookScreen() {
 
             <View style={styles.gestureOverlay} pointerEvents="box-none">
                 <WebView
+                    ref={webRef}
                     style={StyleSheet.absoluteFill}
-                    source={{ uri : 'https://curious-jalebi-61448d.netlify.app/gesture.html' }}
+                    source={{ uri : 'https://melodic-wisp-4cb655.netlify.app/gesture.html' }}
                     javaScriptEnabled={true}
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
@@ -677,7 +700,7 @@ export default function CookScreen() {
                     domStorageEnabled={true}
                     allowFileAccess={true}
                     mixedContentMode="always"
-                    onMessage={(event) => {console.log('[GESTURE 수신]', event.nativeEvent.data); // 임시 추가
+                    onMessage={(event) => {
                         handleGestureMessage(event.nativeEvent.data);
                     }}
                 />
@@ -734,7 +757,7 @@ export default function CookScreen() {
                             <View style={styles.guideTestCamera}>
                                 <WebView
                                     style={StyleSheet.absoluteFill}
-                                    source={{ uri: 'https://curious-jalebi-61448d.netlify.app/gesture.html' }}
+                                    source={{ uri: 'https://melodic-wisp-4cb655.netlify.app/gesture.html' }}
                                     javaScriptEnabled={true}
                                     allowsInlineMediaPlayback={true}
                                     mediaPlaybackRequiresUserAction={false}
@@ -742,9 +765,10 @@ export default function CookScreen() {
                                     onMessage={(event) => {
                                         const g = event.nativeEvent.data;
                                         const labels: Record<string, string> = {
-                                            PALM: '✋ 멈춤',
-                                            SWIPE_LEFT: '👈 이전',
-                                            SWIPE_RIGHT: '👉 다음',
+                                            PALM: '✋ 재생/정지',
+                                            PEACE: '✌️ 음성인식',
+                                            POINT_LEFT: '👈 이전',
+                                            POINT_RIGHT: '👉 다음',
                                             OK: '👌 타이머',
                                         };
                                         setTestGesture(labels[g] || g);
@@ -756,9 +780,10 @@ export default function CookScreen() {
                                 <Text style={styles.guideTestGesture}>{testGesture || '손동작을 해보세요'}</Text>
                                 <View style={{ height: 10 }} />
                                 <Text style={styles.guideItem}>✋  재생 / 일시정지</Text>
+                                <Text style={styles.guideItem}>✌️  음성인식 시작</Text>
                                 <Text style={styles.guideItem}>👈  이전 단계</Text>
                                 <Text style={styles.guideItem}>👉  다음 단계</Text>
-                                <Text style={styles.guideItem}>👌  타이머 열기</Text>
+                                <Text style={styles.guideItem}>👌  타이머 (시간 설정 시 손가락 수 × 30초)</Text>
                             </View>
                         </View>
 
@@ -1024,6 +1049,18 @@ const styles = StyleSheet.create({
         height: 36,
         borderRadius: 18,
         backgroundColor: 'rgba(0,0,0,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10,
+    },
+    playPauseBtn: {
+        position: 'absolute',
+        bottom: 8,
+        right: 8,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(0,0,0,0.45)',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,

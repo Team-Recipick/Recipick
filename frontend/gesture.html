@@ -104,7 +104,7 @@
             // 엄지는 나머지 4개가 모두 펴졌을 때만 체크 (오감지 방지)
             if (count === 4) {
                 const thumbToIndexBase = Math.hypot(lm[4].x - lm[5].x, lm[4].y - lm[5].y);
-                if (thumbToIndexBase > 0.25) count++;  // 0.25: 엄지 의도적 벌림만 감지
+                if (thumbToIndexBase > 0.15) count++;
             }
             return count;
         }

@@ -16,13 +16,14 @@ interface VoiceSearchProps {
 export default function VoiceSearch({ videoId, currentStep }: VoiceSearchProps) {
   const [isListening, setIsListening] = useState(false);
   const [resultText, setResultText] = useState("");
+  const resultTextRef = React.useRef("");  // 클로저 stale 방지
 
   // 🚀 탭이 활성화되면 자동으로 마이크 켜기
   useEffect(() => {
     const autoStart = async () => {
       setTimeout(() => {
         handlePressMic();
-      }, 500);
+      }, 1500);  // 모달 애니메이션 + 권한 처리 완료 대기
     };
     autoStart();
 
@@ -35,14 +36,17 @@ export default function VoiceSearch({ videoId, currentStep }: VoiceSearchProps) 
     const transcript = event.results[0]?.transcript;
     if (transcript) {
       setResultText(transcript);
+      resultTextRef.current = transcript;  // ref에도 저장
     }
   });
 
   // 🏁 말이 끝나면 자동으로 AI에게 질문 전송
   useSpeechRecognitionEvent("end", () => {
     setIsListening(false);
-    if (resultText.trim().length > 0) {
-      handleVoiceCommand(resultText);
+    const text = resultTextRef.current;  // stale closure 방지
+    if (text.trim().length > 0) {
+      handleVoiceCommand(text);
+      resultTextRef.current = "";
     }
   });
 
