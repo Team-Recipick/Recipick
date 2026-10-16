@@ -141,7 +141,13 @@ class RecipeSearchResultResponse(BaseModel):
     category: str
 
 
-# 재료 검색 최종 응답 (레시피 목록 + 연관 재료 집계)
+# 재료 1개만 부족한 레시피 단건 응답 (부족한 재료명 포함)
+class NearRecipeResultResponse(RecipeSearchResultResponse):
+    missing_ingredient: str
+
+
+# 재료 검색 최종 응답 (레시피 목록 + 연관 재료 집계 + 재료 1개 부족 레시피)
 class RecipeSearchResponse(BaseModel):
     recipes: list[RecipeSearchResultResponse]
     available_ingredients: list[IngredientCountResponse]
+    near_recipes: list[NearRecipeResultResponse] = []

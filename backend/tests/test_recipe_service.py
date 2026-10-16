@@ -95,3 +95,49 @@ def test_create_comment_requires_auth_for_non_anonymous():
             is_anonymous=False,
         )
     assert exc.value.status_code == 400
+
+
+def _patch_ingredient_search(monkeypatch, index):
+    infos = {
+        vid: {"video_id": vid, "title": f"title-{vid}", "ingredients": [{"normalized_names": ["소금"]}]}
+        for vid in {v for ids in index.values() for v in ids}
+    }
+    monkeypatch.setattr(recipe_service.recipe_repo, "get_ingredient_index", lambda name: index.get(name, []))
+    monkeypatch.setattr(
+        recipe_service.recipe_repo,
+        "batch_get_recipes_info",
+        lambda ids: [dict(infos[i]) for i in ids if i in infos],
+    )
+
+
+def test_search_by_ingredients_returns_near_recipes_with_missing_ingredient(monkeypatch):
+    _patch_ingredient_search(
+        monkeypatch,
+        {"양파": ["v1", "v2", "v3"], "돼지고기": ["v1", "v2"], "대파": ["v1"]},
+    )
+
+    result = recipe_service.search_recipes_by_ingredients(["양파", "돼지고기", "대파"])
+
+    assert [r["video_id"] for r in result["recipes"]] == ["v1"]
+    assert [r["video_id"] for r in result["near_recipes"]] == ["v2"]
+    assert result["near_recipes"][0]["missing_ingredient"] == "대파"
+    assert "ingredients" not in result["near_recipes"][0]
+
+
+def test_search_by_ingredients_near_recipes_when_no_exact_match(monkeypatch):
+    _patch_ingredient_search(monkeypatch, {"양파": ["v1", "v2"], "대파": ["v1"]})
+
+    result = recipe_service.search_recipes_by_ingredients(["양파", "대파", "없는재료"])
+
+    assert result["recipes"] == []
+    assert [r["video_id"] for r in result["near_recipes"]] == ["v1"]
+    assert result["near_recipes"][0]["missing_ingredient"] == "없는재료"
+
+
+def test_search_by_ingredients_single_ingredient_has_no_near_recipes(monkeypatch):
+    _patch_ingredient_search(monkeypatch, {"양파": ["v1", "v2"]})
+
+    result = recipe_service.search_recipes_by_ingredients(["양파"])
+
+    assert len(result["recipes"]) == 2
+    assert result["near_recipes"] == []

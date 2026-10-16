@@ -14,23 +14,27 @@ export default function FridgeResultScreen() {
     const { recipeData } = useLocalSearchParams();
     const router = useRouter();
 
-    // ✅ 데이터 파싱 로직 강화
-    const recommendations = useMemo(() => {
-        if (!recipeData) return [];
+    // ✅ 데이터 파싱 로직 강화 (정확 일치 레시피 + 재료 1개 부족 레시피)
+    const { recommendations, nearRecommendations } = useMemo(() => {
+        if (!recipeData) return { recommendations: [] as any[], nearRecommendations: [] as any[] };
         try {
             const parsed = JSON.parse(recipeData as string);
-            // 만약 서버 응답이 { recipes: [...] } 형태면 그 안의 배열을, 아니면 데이터 자체(배열)를 사용
-            return Array.isArray(parsed) ? parsed : (parsed.recipes || []);
+            // 배열이면 정확 일치 목록, { recipes, near_recipes } 형태면 각각 사용
+            if (Array.isArray(parsed)) return { recommendations: parsed, nearRecommendations: [] as any[] };
+            return {
+                recommendations: (parsed.recipes || []) as any[],
+                nearRecommendations: (parsed.near_recipes || []) as any[],
+            };
         } catch (e) {
             console.error("파싱 에러:", e);
-            return [];
+            return { recommendations: [] as any[], nearRecommendations: [] as any[] };
         }
     }, [recipeData]);
 
     const [prices, setPrices] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        recommendations.forEach(async (item: any) => {
+        [...recommendations, ...nearRecommendations].forEach(async (item: any) => {
             const videoId = item.video_id || (item.url ? item.url.split('v=')[1] : '');
             if (!videoId) return;
             try {
@@ -45,11 +49,52 @@ export default function FridgeResultScreen() {
                 // 상세 조회 실패 시 무시
             }
         });
-    }, [recommendations]);
+    }, [recommendations, nearRecommendations]);
 
     const openYoutube = (url: string) => {
         if (!url) return;
         Linking.openURL(url).catch(() => console.log("유튜브 링크 연결 실패"));
+    };
+
+    // 레시피 카드 (missing이 있으면 '부족한 재료' 배지 표시)
+    const renderCard = (item: any, index: number, missing?: string) => {
+        // 썸네일과 URL을 안전하게 추출
+        const videoId = item.video_id || (item.url ? item.url.split('v=')[1] : '');
+        const thumbUrl = item.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '');
+        const youtubeUrl = item.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
+
+        return (
+            <TouchableOpacity
+                key={item.id || `${missing ? 'near' : 'exact'}-${index}`}
+                style={styles.resultCard}
+                onPress={() => openYoutube(youtubeUrl)}
+            >
+                <View style={styles.thumbWrapper}>
+                    <Image source={{ uri: thumbUrl }} style={styles.resultThumb} />
+                    <View style={styles.playIconBadge}>
+                        <Ionicons name="play" size={14} color="white" />
+                    </View>
+                    {!!missing && (
+                        <View style={styles.missingBadge}>
+                            <Text style={styles.missingBadgeText}>부족: {missing}</Text>
+                        </View>
+                    )}
+                </View>
+
+                <Text style={styles.resultTitle} numberOfLines={2}>
+                    {item.title || "제목 없는 레시피"}
+                </Text>
+
+                <View style={styles.subRow}>
+                    <Text style={styles.resultSub} numberOfLines={1}>
+                        {item.channel_name || item.channel || "추천 레시피"}
+                    </Text>
+                    {!!prices[videoId] && (
+                        <Text style={styles.priceText}>{prices[videoId]}</Text>
+                    )}
+                </View>
+            </TouchableOpacity>
+        );
     };
 
     return (
@@ -77,51 +122,34 @@ export default function FridgeResultScreen() {
                     <Text style={styles.blackTitle}>레시피를 찾아왔어요!</Text>
                     <Text style={styles.greySubText}>이런 메뉴는 어떠세요?</Text>
                     {/* ✅ 데이터가 없을 경우 처리 */}
-                    {recommendations.length === 0 ? (
+                    {recommendations.length === 0 && nearRecommendations.length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <Ionicons name="search-outline" size={48} color="#E2E8F0" />
                             <Text style={styles.emptyText}>추천할 수 있는 레시피가 없어요.{"\n"}다른 재료를 선택해 보세요!</Text>
                         </View>
                     ) : (
-                        <View style={styles.resultGrid}>
-                            {recommendations.map((item: any, index: number) => {
-                                // 썸네일과 URL을 안전하게 추출
-                                const videoId = item.video_id || (item.url ? item.url.split('v=')[1] : '');
-                                const thumbUrl = item.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '');
-                                const youtubeUrl = item.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
+                        <>
+                            {recommendations.length > 0 ? (
+                                <View style={styles.resultGrid}>
+                                    {recommendations.map((item: any, index: number) => renderCard(item, index))}
+                                </View>
+                            ) : (
+                                <Text style={styles.noExactText}>
+                                    선택한 재료로 바로 만들 수 있는 레시피는 없어요.
+                                </Text>
+                            )}
 
-                                return (
-                                    <TouchableOpacity
-                                        key={item.id || index}
-                                        style={styles.resultCard}
-                                        onPress={() => openYoutube(youtubeUrl)}
-                                    >
-                                        <View style={styles.thumbWrapper}>
-                                            <Image 
-                                                source={{ uri: thumbUrl }} 
-                                                style={styles.resultThumb} 
-                                            />
-                                            <View style={styles.playIconBadge}>
-                                                <Ionicons name="play" size={14} color="white" />
-                                            </View>
-                                        </View>
-                                        
-                                        <Text style={styles.resultTitle} numberOfLines={2}>
-                                            {item.title || "제목 없는 레시피"}
-                                        </Text>
-
-                                        <View style={styles.subRow}>
-                                            <Text style={styles.resultSub} numberOfLines={1}>
-                                                {item.channel_name || item.channel || "추천 레시피"}
-                                            </Text>
-                                            {!!prices[videoId] && (
-                                                <Text style={styles.priceText}>{prices[videoId]}</Text>
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                            {nearRecommendations.length > 0 && (
+                                <View style={styles.nearSection}>
+                                    <Text style={styles.nearTitle}>재료 1개만 더 있으면 만들 수 있어요</Text>
+                                    <View style={styles.resultGrid}>
+                                        {nearRecommendations.map((item: any, index: number) =>
+                                            renderCard(item, index, item.missing_ingredient)
+                                        )}
+                                    </View>
+                                </View>
+                            )}
+                        </>
                     )}
 
                     <TouchableOpacity style={styles.retryBtn} onPress={() => router.replace('/fridge-recipe')}>
@@ -148,6 +176,11 @@ const styles = StyleSheet.create({
     greySubText: { fontSize: s(14), color: '#999', marginTop: s(15), lineHeight: s(22), fontWeight: '600' },
     resultGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: s(25) },
     resultCard: { width: '48%', marginBottom: s(15) },
+    missingBadge: { position: 'absolute', top: s(8), left: s(8), backgroundColor: '#FF8A3D', paddingHorizontal: s(8), paddingVertical: s(3), borderRadius: s(10) },
+    missingBadgeText: { color: '#FFF', fontSize: s(11), fontWeight: '800' },
+    nearSection: { marginTop: s(20) },
+    nearTitle: { fontSize: s(16), fontWeight: '800', color: '#333', marginTop: s(10) },
+    noExactText: { color: '#999', fontSize: s(14), fontWeight: '600', marginTop: s(20) },
     thumbWrapper: { position: 'relative' },
     resultThumb: { width: '100%', aspectRatio: 16 / 9, borderRadius: s(12), backgroundColor: '#F3F6F6' },
     playIconBadge: { position: 'absolute', bottom: s(8), right: s(8), backgroundColor: 'rgba(0,0,0,0.6)', width: s(24), height: s(24), borderRadius: s(12), justifyContent: 'center', alignItems: 'center' },

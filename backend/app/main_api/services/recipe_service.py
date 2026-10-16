@@ -308,15 +308,18 @@ def search_recipes_by_ingredients(names: list[str]) -> dict:
         video_sets.append(set(ids))
 
     if not video_sets:
-        return {"recipes": [], "available_ingredients": []}
+        return {"recipes": [], "available_ingredients": [], "near_recipes": []}
 
     # set 교집합으로 모든 재료가 포함된 video_id만 남김
     intersection = video_sets[0]
     for s in video_sets[1:]:
         intersection = intersection & s
 
+    # 재료 1개만 부족한 레시피 (재료가 2개 이상일 때만 의미가 있음)
+    near_recipes = _find_near_recipes(names, video_sets, intersection)
+
     if not intersection:
-        return {"recipes": [], "available_ingredients": []}
+        return {"recipes": [], "available_ingredients": [], "near_recipes": near_recipes}
 
     # BatchGetItem으로 레시피 정보 일괄 조회 (ingredients 포함)
     items = replace_decimals(recipe_repo.batch_get_recipes_info(list(intersection)))
@@ -343,4 +346,48 @@ def search_recipes_by_ingredients(names: list[str]) -> dict:
     for item in items:
         item.pop('ingredients', None)
 
-    return {"recipes": items, "available_ingredients": aggregated_ingredients}
+    return {
+        "recipes": items,
+        "available_ingredients": aggregated_ingredients,
+        "near_recipes": near_recipes,
+    }
+
+
+NEAR_RECIPE_LIMIT = 20
+
+
+# 선택한 재료 중 정확히 1개만 없는 레시피를 찾아 부족한 재료명과 함께 반환
+def _find_near_recipes(names: list[str], video_sets: list[set], exact_ids: set) -> list[dict]:
+    if len(names) < 2:
+        return []
+
+    # video_id -> 이 레시피에 포함된 선택 재료 개수
+    match_count: Counter = Counter()
+    for s in video_sets:
+        for video_id in s:
+            match_count[video_id] += 1
+
+    near_ids = [
+        video_id
+        for video_id, count in match_count.items()
+        if count == len(names) - 1 and video_id not in exact_ids
+    ][:NEAR_RECIPE_LIMIT]
+    if not near_ids:
+        return []
+
+    items = replace_decimals(recipe_repo.batch_get_recipes_info(near_ids))
+
+    near_recipes = []
+    for item in items:
+        video_id = item.get('video_id')
+        # 해당 레시피의 인덱스 집합에 없는 재료가 부족한 재료
+        missing = [
+            name for name, s in zip(names, video_sets)
+            if video_id not in s
+        ]
+        if len(missing) != 1:
+            continue
+        item.pop('ingredients', None)
+        item['missing_ingredient'] = missing[0]
+        near_recipes.append(item)
+    return near_recipes

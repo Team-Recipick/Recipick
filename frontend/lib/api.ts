@@ -711,6 +711,35 @@ export async function postFridgeRecommend(ingredients: string[]) {
 }
 
 /* =========================
+ * 레시피 좋아요 API
+ * ========================= */
+
+export type RecipeActionResponse = {
+  success: boolean;
+  action: string;
+  video_id: string;
+  already_exists?: boolean;
+};
+
+export async function likeRecipe(videoId: string): Promise<RecipeActionResponse> {
+  const token = await getStoredAccessToken();
+
+  return request<RecipeActionResponse>(`/api/recipes/${encodeURIComponent(videoId)}/likes`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function unlikeRecipe(videoId: string): Promise<RecipeActionResponse> {
+  const token = await getStoredAccessToken();
+
+  return request<RecipeActionResponse>(`/api/recipes/${encodeURIComponent(videoId)}/likes`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+/* =========================
  * 레시피 키워드 검색 API
  * ========================= */
 

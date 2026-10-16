@@ -23,6 +23,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Audio } from 'expo-av';
 import VoiceSearch from '../components/VoiceSearch';
+import LikeButton from '../components/LikeButton';
 import YoutubePlayer from "react-native-youtube-iframe";
 import { gestureHtml } from '../lib/gestureHtml';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -593,6 +594,8 @@ export default function CookScreen() {
                         <Ionicons name="arrow-back" size={22} color={WHITE} />
                     </TouchableOpacity>
 
+                    {!!videoId && <LikeButton videoId={videoId} style={styles.videoLikeBtn} />}
+
                     {videoId && !videoError && (
                         <TouchableOpacity
                             onPress={togglePlay}
@@ -1051,6 +1054,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.4)',
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: 10,
+    },
+    videoLikeBtn: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
         zIndex: 10,
     },
     playPauseBtn: {

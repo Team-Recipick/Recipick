@@ -122,11 +122,13 @@ export default function FridgeRecipeScreen() {
         setIsSearching(true);
         try {
             const res = await postFridgeRecommend(ingredientsList);
+            const recipes = Array.isArray(res) ? res : (res?.recipes || []);
+            const nearRecipes = Array.isArray(res) ? [] : (res?.near_recipes || []);
             router.replace({
                 pathname: '/fridge-result',
-                params: { 
-                    recipeData: JSON.stringify(res.recipes || res || []),
-                    ingredients: ingredientsList.join(',') 
+                params: {
+                    recipeData: JSON.stringify({ recipes, near_recipes: nearRecipes }),
+                    ingredients: ingredientsList.join(',')
                 }
             });
         } catch (error) {
